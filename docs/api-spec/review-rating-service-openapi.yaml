@@ -1,0 +1,504 @@
+openapi: 3.0.3
+info:
+  contact:
+    email: reviews@example.com
+    name: Community Platform Team
+  description: |
+    Microservice for collecting product reviews and star ratings.
+    Supports moderation workflows, helpfulness voting, and aggregate score lookup.
+  title: Review Rating Service
+  version: 1.0.0
+servers:
+- description: Production
+  url: https://api.example.com/v1
+- description: Local development
+  url: http://localhost:8080/v1
+tags:
+- description: Operations on product reviews
+  name: Reviews
+paths:
+  /reviews:
+    get:
+      description: "Returns a paginated list of reviews, optionally filtered by product,\
+        \ rating, or moderation state."
+      operationId: listReviews
+      parameters:
+      - description: Filter by the reviewed product SKU
+        explode: true
+        in: query
+        name: productSku
+        required: false
+        schema:
+          type: string
+        style: form
+      - description: Return only reviews at or above this star rating
+        explode: true
+        in: query
+        name: minRating
+        required: false
+        schema:
+          maximum: 5
+          minimum: 1
+          type: integer
+        style: form
+      - description: Filter by moderation outcome
+        explode: true
+        in: query
+        name: moderationState
+        required: false
+        schema:
+          enum:
+          - PENDING
+          - APPROVED
+          - REJECTED
+          type: string
+        style: form
+      - description: Page number (starts at 1)
+        explode: true
+        in: query
+        name: page
+        required: false
+        schema:
+          default: 1
+          minimum: 1
+          type: integer
+        style: form
+      - description: Number of items per page
+        explode: true
+        in: query
+        name: size
+        required: false
+        schema:
+          default: 20
+          maximum: 100
+          minimum: 1
+          type: integer
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewListResponse"
+          description: Successful response
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Invalid request - the server could not understand the payload
+            or parameters.
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Internal server error - something went wrong on the server
+            side.
+      summary: List all reviews
+      tags:
+      - Reviews
+      x-accepts: application/json
+      x-tags:
+      - tag: Reviews
+    post:
+      description: Creates a review in PENDING state awaiting moderation. A customer
+        may only review a given SKU once.
+      operationId: createReview
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReviewRequest"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Review"
+          description: Review submitted successfully
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Invalid request - the server could not understand the payload
+            or parameters.
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: This customer has already reviewed the product
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Internal server error - something went wrong on the server
+            side.
+      summary: Submit a new review
+      tags:
+      - Reviews
+      x-content-type: application/json
+      x-accepts: application/json
+      x-tags:
+      - tag: Reviews
+  /reviews/{reviewId}:
+    delete:
+      description: Permanently removes a review and its votes. This action cannot
+        be undone.
+      operationId: deleteReview
+      parameters:
+      - description: Unique review identifier (UUID)
+        explode: false
+        in: path
+        name: reviewId
+        required: true
+        schema:
+          type: string
+        style: simple
+      responses:
+        "204":
+          description: Review deleted successfully (no content returned)
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: The requested resource was not found.
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Internal server error - something went wrong on the server
+            side.
+      summary: Delete a review
+      tags:
+      - Reviews
+      x-accepts: application/json
+      x-tags:
+      - tag: Reviews
+    get:
+      description: Retrieves the full details of a single review including helpfulness
+        counts.
+      operationId: getReviewById
+      parameters:
+      - description: Unique review identifier (UUID)
+        explode: false
+        in: path
+        name: reviewId
+        required: true
+        schema:
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Review"
+          description: Review found
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Review not found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Internal server error - something went wrong on the server
+            side.
+      summary: Get a review by ID
+      tags:
+      - Reviews
+      x-accepts: application/json
+      x-tags:
+      - tag: Reviews
+    put:
+      description: "Updates the title, body, or moderation state. The `productSku`\
+        \ and `authorId` cannot be changed."
+      operationId: updateReview
+      parameters:
+      - description: Unique review identifier (UUID)
+        explode: false
+        in: path
+        name: reviewId
+        required: true
+        schema:
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateReviewRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Review"
+          description: Review updated successfully
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Invalid request - the server could not understand the payload
+            or parameters.
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: The requested resource was not found.
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Internal server error - something went wrong on the server
+            side.
+      summary: Update a review
+      tags:
+      - Reviews
+      x-content-type: application/json
+      x-accepts: application/json
+      x-tags:
+      - tag: Reviews
+components:
+  responses:
+    BadRequest:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+      description: Invalid request - the server could not understand the payload or
+        parameters.
+    NotFound:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+      description: The requested resource was not found.
+    InternalError:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+      description: Internal server error - something went wrong on the server side.
+  schemas:
+    Review:
+      example:
+        rating: 4
+        authorId: cust-88213
+        authorDisplayName: J. Doe
+        title: Great value for the price
+        body: "Battery life is excellent, though the scroll wheel feels cheap."
+        unhelpfulVotes: 3
+        productSku: SKU-12345
+        helpfulVotes: 27
+        verifiedPurchase: true
+        id: r1e2v3w4
+        submittedAt: 2026-08-12T10:00:00Z
+        moderatedAt: 2000-01-23T04:56:07.000+00:00
+        moderationState: APPROVED
+      properties:
+        id:
+          description: Unique review ID (UUID)
+          example: r1e2v3w4
+          type: string
+        productSku:
+          example: SKU-12345
+          type: string
+        authorId:
+          example: cust-88213
+          type: string
+        authorDisplayName:
+          example: J. Doe
+          type: string
+        rating:
+          example: 4
+          maximum: 5
+          minimum: 1
+          type: integer
+        title:
+          example: Great value for the price
+          type: string
+        body:
+          example: "Battery life is excellent, though the scroll wheel feels cheap."
+          type: string
+        verifiedPurchase:
+          example: true
+          type: boolean
+        moderationState:
+          enum:
+          - PENDING
+          - APPROVED
+          - REJECTED
+          example: APPROVED
+          type: string
+        helpfulVotes:
+          example: 27
+          type: integer
+        unhelpfulVotes:
+          example: 3
+          type: integer
+        submittedAt:
+          example: 2026-08-12T10:00:00Z
+          format: date-time
+          type: string
+        moderatedAt:
+          format: date-time
+          type: string
+      required:
+      - id
+      - moderationState
+      - productSku
+      - rating
+      type: object
+    CreateReviewRequest:
+      example:
+        productSku: SKU-12345
+        rating: 4
+        authorId: cust-88213
+        title: Great value for the price
+        body: "Battery life is excellent, though the scroll wheel feels cheap."
+      properties:
+        productSku:
+          example: SKU-12345
+          type: string
+        authorId:
+          example: cust-88213
+          type: string
+        rating:
+          example: 4
+          maximum: 5
+          minimum: 1
+          type: integer
+        title:
+          example: Great value for the price
+          maxLength: 120
+          type: string
+        body:
+          example: "Battery life is excellent, though the scroll wheel feels cheap."
+          maxLength: 2000
+          type: string
+      required:
+      - authorId
+      - productSku
+      - rating
+      type: object
+    UpdateReviewRequest:
+      example:
+        rating: 5
+        title: Even better after the firmware update
+        body: The scroll wheel issue was fixed in the latest firmware.
+        moderationState: APPROVED
+      properties:
+        rating:
+          example: 5
+          maximum: 5
+          minimum: 1
+          type: integer
+        title:
+          example: Even better after the firmware update
+          maxLength: 120
+          type: string
+        body:
+          example: The scroll wheel issue was fixed in the latest firmware.
+          maxLength: 2000
+          type: string
+        moderationState:
+          enum:
+          - PENDING
+          - APPROVED
+          - REJECTED
+          example: APPROVED
+          type: string
+      type: object
+    ReviewListResponse:
+      example:
+        size: 20
+        averageRating: 4.3
+        totalPages: 93
+        page: 1
+        content:
+        - rating: 4
+          authorId: cust-88213
+          authorDisplayName: J. Doe
+          title: Great value for the price
+          body: "Battery life is excellent, though the scroll wheel feels cheap."
+          unhelpfulVotes: 3
+          productSku: SKU-12345
+          helpfulVotes: 27
+          verifiedPurchase: true
+          id: r1e2v3w4
+          submittedAt: 2026-08-12T10:00:00Z
+          moderatedAt: 2000-01-23T04:56:07.000+00:00
+          moderationState: APPROVED
+        - rating: 4
+          authorId: cust-88213
+          authorDisplayName: J. Doe
+          title: Great value for the price
+          body: "Battery life is excellent, though the scroll wheel feels cheap."
+          unhelpfulVotes: 3
+          productSku: SKU-12345
+          helpfulVotes: 27
+          verifiedPurchase: true
+          id: r1e2v3w4
+          submittedAt: 2026-08-12T10:00:00Z
+          moderatedAt: 2000-01-23T04:56:07.000+00:00
+          moderationState: APPROVED
+        totalElements: 1842
+      properties:
+        page:
+          example: 1
+          type: integer
+        size:
+          example: 20
+          type: integer
+        totalElements:
+          example: 1842
+          type: integer
+        totalPages:
+          example: 93
+          type: integer
+        averageRating:
+          example: 4.3
+          format: double
+          type: number
+        content:
+          items:
+            $ref: "#/components/schemas/Review"
+          type: array
+      type: object
+    ErrorResponse:
+      properties:
+        status:
+          example: 400
+          type: integer
+        errorCode:
+          example: INVALID_RATING
+          type: string
+        message:
+          example: "Validation failed: rating must be between 1 and 5"
+          type: string
+        timestamp:
+          example: 2026-08-12T10:00:00Z
+          format: date-time
+          type: string
+        path:
+          example: /v1/reviews
+          type: string
+      required:
+      - message
+      - status
+      type: object
